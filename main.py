@@ -121,7 +121,6 @@ def currency_menu():
 
 # ================= STATES =================
 CHOOSE_PRODUCT, ENTER_TG, ENTER_ID, CHOOSE_BANK, CHOOSE_CURRENCY, WAIT_CHECK = range(6)
-
 # ================= HANDLERS =================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("👑 Добро пожаловать! Выберите количество Gold из прайс-листа:", reply_markup=SO_TABLE_MENU)
@@ -239,4 +238,48 @@ async def get_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"💰 Товар: {context.user_data.get('product','')} — {context.user_data.get('final_amount','?')}"
     )
     
-await update.message.reply_text("✅ Оплата отправлена на проверку! Администратор скоро свяжется с вами.")context.user_data.clear()return ConversationHandler.END================= RUN =================def main():if not TOKEN:print("Ошибка: Переменная TOKEN не задана!")returnconv_handler = ConversationHandler(entry_points=[CommandHandler("start", start)],states={CHOOSE_PRODUCT: [CallbackQueryHandler(product_choice, pattern="^so_")],ENTER_TG: [CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),MessageHandler(filters.TEXT & ~filters.COMMAND, enter_tg)],ENTER_ID: [CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),MessageHandler(filters.TEXT & ~filters.COMMAND, enter_id)],CHOOSE_BANK: [CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),CallbackQueryHandler(bank_choice, pattern="^bank_")],CHOOSE_CURRENCY: [CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),CallbackQueryHandler(currency_choice, pattern="^curr_")],WAIT_CHECK: [CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),MessageHandler(filters.PHOTO, get_check)],},fallbacks=[],)app = ApplicationBuilder().token(TOKEN).build()app.add_handler(conv_handler)print("🚀 Бот Standoff 2 обновлен и запущен!")app.run_polling()if name == "main":main()
+    await update.message.reply_text("✅ Оплата отправлена на проверку! Администратор скоро свяжется с вами.")
+    context.user_data.clear()
+    return ConversationHandler.END
+
+# ================= RUN =================
+def main():
+    if not TOKEN:
+        print("Ошибка: Переменная TOKEN не задана!")
+        return
+
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            CHOOSE_PRODUCT: [CallbackQueryHandler(product_choice, pattern="^so_")],
+            ENTER_TG: [
+                CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, enter_tg)
+            ],
+            ENTER_ID: [
+                CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, enter_id)
+            ],
+            CHOOSE_BANK: [
+                CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
+                CallbackQueryHandler(bank_choice, pattern="^bank_")
+            ],
+            CHOOSE_CURRENCY: [
+                CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
+                CallbackQueryHandler(currency_choice, pattern="^curr_")
+            ],
+            WAIT_CHECK: [
+                CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
+                MessageHandler(filters.PHOTO, get_check)
+            ],
+        },
+        fallbacks=[],
+    )
+
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(conv_handler)
+    print("🚀 Бот Standoff 2 обновлен и запущен!")
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
