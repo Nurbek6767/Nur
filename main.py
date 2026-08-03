@@ -21,11 +21,12 @@ TOKEN = os.getenv("TOKEN")
 CHANNEL_ID = -1003660151590
 
 # ================= BANKS =================
+# Перевели названия на русский язык и добавили эмодзи карт
 BANKS = {
-    "dc": {"name": "DC Wallet", "icon": "💳", "number": "+992927755444"},
-    "tinkoff": {"name": "Тинькофф", "icon": "💛", "number": "4342 0000 0000 0000"},  # Укажи свою карту
-    "sber": {"name": "Сбербанк", "icon": "💚", "number": "2202 0000 0000 0000"},    # Укажи свою карту
-    "sbp": {"name": "СБП", "icon": "📲", "number": "+79991234567"}                 # Укажи свой СБП
+    "dc": {"name": "Диси Кошелёк", "icon": "💳", "number": "+992927755444"},
+    "tinkoff": {"name": "Тинькофф Банк", "icon": "💳", "number": "4342 0000 0000 0000"},  # Укажи свою карту
+    "sber": {"name": "Сбербанк", "icon": "💳", "number": "2202 0000 0000 0000"},    # Укажи свою карту
+    "sbp": {"name": "СБП (Перевод по телефону)", "icon": "💳", "number": "+79991234567"} # Укажи свой СБП
 }
 
 # ================= STANDOFF 2 PRICES =================
@@ -103,12 +104,13 @@ SO_TABLE_MENU = InlineKeyboardMarkup([
 def inline_back_menu():
     return InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад в меню", callback_data="back_to_menu")]])
 
+# Русский текст и одинаковые эмодзи карт на всех кнопках
 def bank_menu():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("💳 DC", callback_data="bank_dc")],
-        [InlineKeyboardButton("💛 Tinkoff", callback_data="bank_tinkoff")],
-        [InlineKeyboardButton("💚 SBER", callback_data="bank_sber")],
-        [InlineKeyboardButton("📲 SBP", callback_data="bank_sbp")],
+        [InlineKeyboardButton("💳 Диси Кошелёк", callback_data="bank_dc")],
+        [InlineKeyboardButton("💳 Тинькофф", callback_data="bank_tinkoff")],
+        [InlineKeyboardButton("💳 Сбербанк", callback_data="bank_sber")],
+        [InlineKeyboardButton("💳 СБП", callback_data="bank_sbp")],
         [InlineKeyboardButton("⬅️ Назад в меню", callback_data="back_to_menu")]
     ])
 
@@ -187,7 +189,7 @@ async def bank_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    bank_key = query.data.split("_")[1]
+    bank_key = query.data.replace("bank_", "")
     bank = BANKS.get(bank_key)
     if not bank:
         return CHOOSE_BANK
@@ -202,7 +204,7 @@ async def bank_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def currency_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    curr_type = query.data.split("_")[1]
+    curr_type = query.data.replace("curr_", "")
 
     if curr_type == "tjs":
         amount = f"{context.user_data['price_tjs']} сомони"
@@ -211,14 +213,24 @@ async def currency_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["final_amount"] = amount
 
+    # Твоя ссылка для кнопки быстрой оплаты (замени на свою, если нужно)
+    pay_url = "https://nspk.ru"
+
+    # Генерируем клавиатуру с кнопкой «Перейти к оплате 💳» и кнопкой «Назад»
+    pay_keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Перейти к оплате 💳", url=pay_url)],
+        [InlineKeyboardButton("⬅️ Назад в меню", callback_data="back_to_menu")]
+    ])
+
     await query.message.edit_text(
         f"{context.user_data['bank_icon']} *Банк:* {context.user_data['bank_name']}\n"
         f"📞 *Реквизиты:* `{context.user_data['bank_number']}`\n\n"
         f"📦 *Товар:* {context.user_data['product']}\n"
         f"💰 *Сумма к оплате:* *{amount}*\n\n"
-        "Пожалуйста, переведите точную сумму по реквизитам выше и отправьте скриншот/фото чека сюда:",
+        "Пожалуйста, нажмите на кнопку ниже для оплаты или переведите сумму по реквизитам, "
+        "а затем отправьте скриншот/фото чека сюда:",
         parse_mode="Markdown",
-        reply_markup=inline_back_menu()
+        reply_markup=pay_keyboard
     )
     return WAIT_CHECK
 
@@ -283,3 +295,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
