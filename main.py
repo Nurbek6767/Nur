@@ -21,12 +21,11 @@ TOKEN = os.getenv("TOKEN")
 CHANNEL_ID = -1003660151590
 
 # ================= BANKS =================
-# Сюда в параметры "link" вставь свои настоящие ссылки на оплату для каждого банка!
 BANKS = {
-    "dc": {"name": "Диси Кошелёк", "icon": "💳", "number": "+992927755444", "link": "https://dc.tj"},
-    "tinkoff": {"name": "Тинькофф Банк", "icon": "💳", "number": "4342 0000 0000 0000", "link": "https://tinkoff.ru"},
-    "sber": {"name": "Сбербанк", "icon": "💳", "number": "2202 0000 0000 0000", "link": "https://sberbank.ru"},
-    "sbp": {"name": "СБП (Перевод по телефону)", "icon": "💳", "number": "+79991234567", "link": "https://nspk.ru"}
+    "dc": {"name": "Dushanbe City", "icon": "💳", "number": "+992927755444"},
+    "tinkoff": {"name": "Тинькофф Банк", "icon": "💳", "number": "4342 0000 0000 0000"},  # Укажи свою карту
+    "sber": {"name": "Сбербанк", "icon": "💳", "number": "2202 0000 0000 0000"},    # Укажи свою карту
+    "sbp": {"name": "СБП (Перевод по телефону)", "icon": "💳", "number": "+79991234567"} # Укажи свой СБП
 }
 
 # ================= STANDOFF 2 PRICES =================
@@ -106,7 +105,7 @@ def inline_back_menu():
 
 def bank_menu():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("💳 Диси Кошелёк", callback_data="bank_dc")],
+        [InlineKeyboardButton("💳 Dushanbe City", callback_data="bank_dc")],
         [InlineKeyboardButton("💳 Тинькофф", callback_data="bank_tinkoff")],
         [InlineKeyboardButton("💳 Сбербанк", callback_data="bank_sber")],
         [InlineKeyboardButton("💳 СБП", callback_data="bank_sbp")],
@@ -133,6 +132,13 @@ async def back_to_menu_callback(update: Update, context: ContextTypes.DEFAULT_TY
     context.user_data.clear()
     await query.message.edit_text("👑 Выберите количество Gold из прайс-листа:", reply_markup=SO_TABLE_MENU)
     return CHOOSE_PRODUCT
+
+async def back_to_currency_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Возврат назад на один шаг — к выбору валюты"""
+    query = update.callback_query
+    await query.answer()
+    await query.message.edit_text("💱 Выберите валюту для оплаты:", reply_markup=currency_menu())
+    return CHOOSE_CURRENCY
 
 async def product_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -196,7 +202,6 @@ async def bank_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["bank_name"] = bank["name"]
     context.user_data["bank_icon"] = bank["icon"]
     context.user_data["bank_number"] = bank["number"]
-    context.user_data["bank_link"] = bank["link"]  # Запоминаем ссылку конкретного банка
 
     await query.message.edit_text("💱 Выберите валюту для оплаты:", reply_markup=currency_menu())
     return CHOOSE_CURRENCY
@@ -213,12 +218,9 @@ async def currency_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["final_amount"] = amount
 
-    # Подставляем индивидуальную ссылку выбранного банка (или базовую, если пустая)
-    pay_url = context.user_data.get("bank_link", "https://nspk.ru")
-
-    pay_keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Перейти к оплате 💳", url=pay_url)],
-        [InlineKeyboardButton("⬅️ Назад в меню", callback_data="back_to_menu")]
+    # Кнопка возвращает строго назад на шаг выбора валюты
+    back_keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_currency")]
     ])
 
     await query.message.edit_text(
@@ -226,16 +228,15 @@ async def currency_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📞 *Реквизиты:* `{context.user_data['bank_number']}`\n\n"
         f"📦 *Товар:* {context.user_data['product']}\n"
         f"💰 *Сумма к оплате:* *{amount}*\n\n"
-        "Пожалуйста, нажмите на кнопку ниже для быстрой оплаты или переведите сумму по реквизитам вручную. "
-        "После перевода отправьте скриншот/фото чека прямо сюда:",
+        "Пожалуйста, переведите точную сумму по реквизитам выше и отправьте скриншот/фото чека сюда:",
         parse_mode="Markdown",
-        reply_markup=pay_keyboard
+        reply_markup=back_keyboard
     )
     return WAIT_CHECK
 
 async def get_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message.photo:
-        await update.message.reply_text("❌ Пожалуйста, отправьте фото или скриншот чека.", reply_markup=inline_back_menu())
+        await update.message.reply_text("❌ Пожалуйста, отправьте фото или скриншот чека.")
         return WAIT_CHECK
 
     await context.bot.send_photo(
@@ -280,7 +281,7 @@ def main():
                 CallbackQueryHandler(currency_choice, pattern="^curr_")
             ],
             WAIT_CHECK: [
-                CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
+                CallbackQueryHandler(back_to_currency_callback, pattern="^back_to_currency$"),
                 MessageHandler(filters.PHOTO, get_check)
             ],
         },
@@ -294,4 +295,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
