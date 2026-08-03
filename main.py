@@ -21,12 +21,12 @@ TOKEN = os.getenv("TOKEN")
 CHANNEL_ID = -1003660151590
 
 # ================= BANKS =================
-# Перевели названия на русский язык и добавили эмодзи карт
+# Сюда в параметры "link" вставь свои настоящие ссылки на оплату для каждого банка!
 BANKS = {
-    "dc": {"name": "Dushanbe City", "icon": "💳", "number": "+992927755444"},
-    "tinkoff": {"name": "Тинькофф Банк", "icon": "💳", "number": "4342 0000 0000 0000"},  # Укажи свою карту
-    "sber": {"name": "Сбербанк", "icon": "💳", "number": "2202 0000 0000 0000"},    # Укажи свою карту
-    "sbp": {"name": "СБП (Перевод по телефону)", "icon": "💳", "number": "+79991234567"} # Укажи свой СБП
+    "dc": {"name": "Диси Кошелёк", "icon": "💳", "number": "+992927755444", "link": "https://dc.tj"},
+    "tinkoff": {"name": "Тинькофф Банк", "icon": "💳", "number": "4342 0000 0000 0000", "link": "https://tinkoff.ru"},
+    "sber": {"name": "Сбербанк", "icon": "💳", "number": "2202 0000 0000 0000", "link": "https://sberbank.ru"},
+    "sbp": {"name": "СБП (Перевод по телефону)", "icon": "💳", "number": "+79991234567", "link": "https://nspk.ru"}
 }
 
 # ================= STANDOFF 2 PRICES =================
@@ -104,10 +104,9 @@ SO_TABLE_MENU = InlineKeyboardMarkup([
 def inline_back_menu():
     return InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад в меню", callback_data="back_to_menu")]])
 
-# Русский текст и одинаковые эмодзи карт на всех кнопках
 def bank_menu():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("💳 Dushanbe City", callback_data="bank_dc")],
+        [InlineKeyboardButton("💳 Диси Кошелёк", callback_data="bank_dc")],
         [InlineKeyboardButton("💳 Тинькофф", callback_data="bank_tinkoff")],
         [InlineKeyboardButton("💳 Сбербанк", callback_data="bank_sber")],
         [InlineKeyboardButton("💳 СБП", callback_data="bank_sbp")],
@@ -197,6 +196,7 @@ async def bank_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["bank_name"] = bank["name"]
     context.user_data["bank_icon"] = bank["icon"]
     context.user_data["bank_number"] = bank["number"]
+    context.user_data["bank_link"] = bank["link"]  # Запоминаем ссылку конкретного банка
 
     await query.message.edit_text("💱 Выберите валюту для оплаты:", reply_markup=currency_menu())
     return CHOOSE_CURRENCY
@@ -213,10 +213,9 @@ async def currency_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["final_amount"] = amount
 
-    # Твоя ссылка для кнопки быстрой оплаты (замени на свою, если нужно)
-    pay_url = "https://nspk.ru"
+    # Подставляем индивидуальную ссылку выбранного банка (или базовую, если пустая)
+    pay_url = context.user_data.get("bank_link", "https://nspk.ru")
 
-    # Генерируем клавиатуру с кнопкой «Перейти к оплате 💳» и кнопкой «Назад»
     pay_keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("Перейти к оплате 💳", url=pay_url)],
         [InlineKeyboardButton("⬅️ Назад в меню", callback_data="back_to_menu")]
@@ -227,8 +226,8 @@ async def currency_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📞 *Реквизиты:* `{context.user_data['bank_number']}`\n\n"
         f"📦 *Товар:* {context.user_data['product']}\n"
         f"💰 *Сумма к оплате:* *{amount}*\n\n"
-        "Пожалуйста, нажмите на кнопку ниже для оплаты или переведите сумму по реквизитам, "
-        "а затем отправьте скриншот/фото чека сюда:",
+        "Пожалуйста, нажмите на кнопку ниже для быстрой оплаты или переведите сумму по реквизитам вручную. "
+        "После перевода отправьте скриншот/фото чека прямо сюда:",
         parse_mode="Markdown",
         reply_markup=pay_keyboard
     )
