@@ -11,7 +11,7 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# Настройка логирования для отслеживания ошибок на хостинге
+# Настройка логирования
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
@@ -45,7 +45,7 @@ SO_PRICES = {
     "so_5000": ("5000 Gold", 4170, 500)
 }
 
-# Таблица цен один в один по твоей раскладке
+# Таблица цен
 SO_TABLE_MENU = InlineKeyboardMarkup([
     [
         InlineKeyboardButton("🧈 300G — 30смн / 250₽", callback_data="so_300"),
@@ -171,7 +171,6 @@ async def enter_tg(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def enter_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     
-    # Проверяем, что введены только цифры и их не менее 7
     if not text.isdigit() or len(text) < 7:
         await update.message.reply_text(
             "❌ Неверный ID!\n"
@@ -189,7 +188,6 @@ async def bank_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    # Исправлено разделение строки, чтобы не вызывать ошибку
     bank_key = query.data.split("_")[1]
     bank = BANKS.get(bank_key)
     if not bank:
@@ -205,8 +203,6 @@ async def bank_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def currency_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
-    # Исправлено разделение строки
     curr_type = query.data.split("_")[1]
 
     if curr_type == "tjs":
@@ -241,46 +237,6 @@ async def get_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"🆔 Игровой ID: {context.user_data.get('game_id','')}\n"
                 f"💳 Банк оплаты: {context.user_data.get('bank_name','')}\n"
                 f"💰 Товар: {context.user_data.get('product','')} — {context.user_data.get('final_amount','?')}"
-         )
-await update.message.reply_text("✅ Оплата отправлена на проверку! Администратор скоро свяжется с вами.")
-context.user_data.clear()
-return ConversationHandler.END
-
-================= RUN =================
-def main():
-if not TOKEN:
-print("Ошибка: Переменная TOKEN не задана!")
-return
-conv_handler = ConversationHandler(
-entry_points=[CommandHandler("start", start)],
-states={
-CHOOSE_PRODUCT: [CallbackQueryHandler(product_choice, pattern="^so_")],
-ENTER_TG: [
-CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
-MessageHandler(filters.TEXT & ~filters.COMMAND, enter_tg)
-],
-ENTER_ID: [
-CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
-MessageHandler(filters.TEXT & ~filters.COMMAND, enter_id)
-],
-CHOOSE_BANK: [
-CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
-CallbackQueryHandler(bank_choice, pattern="^bank_")
-],
-CHOOSE_CURRENCY: [
-CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
-CallbackQueryHandler(currency_choice, pattern="^curr_")
-],
-WAIT_CHECK: [
-CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
-MessageHandler(filters.PHOTO, get_check)
-],
-},
-fallbacks=[],
-)
-app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(conv_handler)
-print("🚀 Бот Standoff 2 обновлен и запущен!")
-app.run_polling()
-if name == "main":
-main()
+    )
+    
+await update.message.reply_text("✅ Оплата отправлена на проверку! Администратор скоро свяжется с вами.")context.user_data.clear()return ConversationHandler.END================= RUN =================def main():if not TOKEN:print("Ошибка: Переменная TOKEN не задана!")returnconv_handler = ConversationHandler(entry_points=[CommandHandler("start", start)],states={CHOOSE_PRODUCT: [CallbackQueryHandler(product_choice, pattern="^so_")],ENTER_TG: [CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),MessageHandler(filters.TEXT & ~filters.COMMAND, enter_tg)],ENTER_ID: [CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),MessageHandler(filters.TEXT & ~filters.COMMAND, enter_id)],CHOOSE_BANK: [CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),CallbackQueryHandler(bank_choice, pattern="^bank_")],CHOOSE_CURRENCY: [CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),CallbackQueryHandler(currency_choice, pattern="^curr_")],WAIT_CHECK: [CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),MessageHandler(filters.PHOTO, get_check)],},fallbacks=[],)app = ApplicationBuilder().token(TOKEN).build()app.add_handler(conv_handler)print("🚀 Бот Standoff 2 обновлен и запущен!")app.run_polling()if name == "main":main()
