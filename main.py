@@ -23,7 +23,7 @@ CHANNEL_ID = -1003660151590
 # ================= BANKS =================
 # Перевели названия на русский язык и добавили эмодзи карт
 BANKS = {
-    "dc": {"name": "Диси Кошелёк", "icon": "💳", "number": "+992927755444"},
+    "dc": {"name": "Dushanbe City", "icon": "💳", "number": "+992927755444"},
     "tinkoff": {"name": "Тинькофф Банк", "icon": "💳", "number": "4342 0000 0000 0000"},  # Укажи свою карту
     "sber": {"name": "Сбербанк", "icon": "💳", "number": "2202 0000 0000 0000"},    # Укажи свою карту
     "sbp": {"name": "СБП (Перевод по телефону)", "icon": "💳", "number": "+79991234567"} # Укажи свой СБП
@@ -107,7 +107,7 @@ def inline_back_menu():
 # Русский текст и одинаковые эмодзи карт на всех кнопках
 def bank_menu():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("💳 Диси Кошелёк", callback_data="bank_dc")],
+        [InlineKeyboardButton("💳 Dushanbe City", callback_data="bank_dc")],
         [InlineKeyboardButton("💳 Тинькофф", callback_data="bank_tinkoff")],
         [InlineKeyboardButton("💳 Сбербанк", callback_data="bank_sber")],
         [InlineKeyboardButton("💳 СБП", callback_data="bank_sbp")],
