@@ -1,3 +1,5 @@
+import os
+import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -9,14 +11,21 @@ from telegram.ext import (
     ContextTypes,
 )
 
-TOKEN = "8852834653:AAFTwmYk6IcPXg9sEEbnuOM6HG0uWqgRuPo"
+# Настройка логирования для отслеживания ошибок на хостинге
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+
+TOKEN = os.getenv("TOKEN")
 CHANNEL_ID = -1003660151590
 
 # ================= BANKS =================
 BANKS = {
-    "dc": {"name": "DC", "icon": "💳", "number": "+992927755444"},
-    "alif": {"name": "Алиф", "icon": "📱", "number": "+992929110550"},
-    "eskhata": {"name": "Эсхата", "icon": "🏦", "number": "+992507771010"}
+    "dc": {"name": "DC Wallet", "icon": "💳", "number": "+992927755444"},
+    "tinkoff": {"name": "Тинькофф", "icon": "💛", "number": "4342 0000 0000 0000"},  # Укажи свою карту
+    "sber": {"name": "Сбербанк", "icon": "💚", "number": "2202 0000 0000 0000"},    # Укажи свою карту
+    "sbp": {"name": "СБП", "icon": "📲", "number": "+79991234567"}                 # Укажи свой СБП
 }
 
 # ================= STANDOFF 2 PRICES =================
@@ -36,7 +45,7 @@ SO_PRICES = {
     "so_5000": ("5000 Gold", 4170, 500)
 }
 
-# Таблица цен
+# Таблица цен один в один по твоей раскладке
 SO_TABLE_MENU = InlineKeyboardMarkup([
     [
         InlineKeyboardButton("🧈 300G — 30смн / 250₽", callback_data="so_300"),
@@ -97,8 +106,9 @@ def inline_back_menu():
 def bank_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("💳 DC", callback_data="bank_dc")],
-        [InlineKeyboardButton("📱 Alif", callback_data="bank_alif")],
-        [InlineKeyboardButton("🏦 Eskhata", callback_data="bank_eskhata")],
+        [InlineKeyboardButton("💛 Tinkoff", callback_data="bank_tinkoff")],
+        [InlineKeyboardButton("💚 SBER", callback_data="bank_sber")],
+        [InlineKeyboardButton("📲 SBP", callback_data="bank_sbp")],
         [InlineKeyboardButton("⬅️ Назад в меню", callback_data="back_to_menu")]
     ])
 
@@ -179,6 +189,7 @@ async def bank_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
+    # Исправлено разделение строки, чтобы не вызывать ошибку
     bank_key = query.data.split("_")[1]
     bank = BANKS.get(bank_key)
     if not bank:
@@ -194,6 +205,8 @@ async def bank_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def currency_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    
+    # Исправлено разделение строки
     curr_type = query.data.split("_")[1]
 
     if curr_type == "tjs":
@@ -228,18 +241,22 @@ async def get_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"🆔 Игровой ID: {context.user_data.get('game_id','')}\n"
                 f"💳 Банк оплаты: {context.user_data.get('bank_name','')}\n"
                 f"💰 Товар: {context.user_data.get('product','')} — {context.user_data.get('final_amount','?')}"
-    )
-    
-    await update.message.reply_text("✅ Оплата отправлена на проверку! Администратор скоро свяжется с вами.")
-    context.user_data.clear()
-    return ConversationHandler.END
+         )
+await update.message.reply_text("✅ Оплата отправлена на проверку! Администратор скоро свяжется с вами.")
+context.user_data.clear()
+return ConversationHandler.END
 
-# ================= RUN =================
+================= RUN =================
+def main():
+if not TOKEN:
+print("Ошибка: Переменная TOKEN не задана!")
+return
 conv_handler = ConversationHandler(
-    entry_points=[CommandHandler("start", start)],
-    states={
-        CHOOSE_PRODUCT: [CallbackQueryHandler(product_choice)],
-        ENTER_TG: [CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
+entry_points=[CommandHandler("start", start)],
+states={
+CHOOSE_PRODUCT: [CallbackQueryHandler(product_choice, pattern="^so_")],
+ENTER_TG: [
+CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
 MessageHandler(filters.TEXT & ~filters.COMMAND, enter_tg)
 ],
 ENTER_ID: [
@@ -248,11 +265,11 @@ MessageHandler(filters.TEXT & ~filters.COMMAND, enter_id)
 ],
 CHOOSE_BANK: [
 CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
-CallbackQueryHandler(bank_choice)
+CallbackQueryHandler(bank_choice, pattern="^bank_")
 ],
 CHOOSE_CURRENCY: [
 CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
-CallbackQueryHandler(currency_choice)
+CallbackQueryHandler(currency_choice, pattern="^curr_")
 ],
 WAIT_CHECK: [
 CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
@@ -261,9 +278,9 @@ MessageHandler(filters.PHOTO, get_check)
 },
 fallbacks=[],
 )
-if name == "main":
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(conv_handler)
 print("🚀 Бот Standoff 2 обновлен и запущен!")
 app.run_polling()
-
+if name == "main":
+main()
