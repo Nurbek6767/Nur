@@ -110,10 +110,9 @@ def currency_menu():
         [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_menu")]
     ])
 
-# STATES
-CHOOSE_PRODUCT, ENTER_TG, ENTER_ID, CHOOSE_BANK, CHOOSE_CURRENCY, WAIT_CHECK = range(6)
+# STATES (УБРАЛ ШАГ ENTER_TG)
+CHOOSE_PRODUCT, ENTER_ID, CHOOSE_BANK, CHOOSE_CURRENCY, WAIT_CHECK = range(5)
 
-# ЧИСТО ТВОИ 4 КНОПКИ В НИЖНЕМ МЕНЮ
 def get_main_keyboard():
     keyboard = [
         [KeyboardButton("💰 Пополнить"), KeyboardButton("🆔 Профиль")],
@@ -163,24 +162,11 @@ async def product_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         return CHOOSE_PRODUCT
 
+    # СРАЗУ ПЕРЕХОДИМ К ЗАПРОСУ ИГРОВОГО ID (ПРОПУСКАЯ ТЕЛЕГРАМ НИК)
     await query.message.edit_text(
-        "👤 Введите ваш ник в Telegram (Обязательно с символом @ в начале, например: @mick):",
+        "🆔 Введите ваш игровой ID Standoff 2 (минимум 7 цифр):",
         reply_markup=inline_back_menu()
     )
-    return ENTER_TG
-
-async def enter_tg(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.strip()
-    
-    if not text.startswith("@") or len(text) < 2:
-        await update.message.reply_text(
-            "❌ Неверный Telegram ник!\nПожалуйста, отправьте никнейм правильно (например: @mick):",
-            reply_markup=inline_back_menu()
-        )
-        return ENTER_TG
-
-    context.user_data["nick"] = text
-    await update.message.reply_text("🆔 Введите ваш игровой ID Standoff 2 (минимум 7 цифр):", reply_markup=inline_back_menu())
     return ENTER_ID
 
 async def enter_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -227,13 +213,11 @@ async def currency_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["final_amount"] = amount
 
-    # Кнопки под чеком строго как на скриншоте №2
     payment_keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("🚫 Проблема с оплатой", callback_data="pay_problem")],
         [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_menu")]
     ])
 
-    # Текст чека полностью повторяет шаблон с вашего скриншота
     receipt_text = (
         f"{context.user_data['bank_icon']} **Банк для оплаты: {context.user_data['bank_name']}**\n\n"
         f"Если нужен сбп, отпишите в лс владельцу\n\n"
@@ -251,12 +235,15 @@ async def get_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Пожалуйста, отправьте именно фото или скриншот чека.")
         return WAIT_CHECK
 
+    user = update.effective_user
+    username = f"@{user.username}" if user.username else user.first_name
+
     await context.bot.send_photo(
         chat_id=CHANNEL_ID,
         photo=update.message.photo[-1].file_id,
         caption=f"📌 Новый заказ [STANDOFF 2]:\n"
                 f"🎮 Игра: STANDOFF 2\n"
-                f"👤 Ник в TG: {context.user_data.get('nick','')}\n"
+                f"👤 Ник в TG: {username}\n"
                 f"🆔 Игровой ID: {context.user_data.get('game_id','')}\n"
                 f"💳 Банк оплаты: {context.user_data.get('bank_name','')}\n"
                 f"💰 Товар: {context.user_data.get('product','')} — {context.user_data.get('final_amount','?')}"
@@ -266,7 +253,7 @@ async def get_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     return ConversationHandler.END
 
-# ================= ГЛОБАЛЬНЫЕ ОБРАБОТЧИКИ КНОПОК =================
+# ================= GLOBAL MENU HANDLERS =================
 async def global_menu_handlers(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
     user = update.effective_user
@@ -275,7 +262,6 @@ async def global_menu_handlers(update: Update, context: ContextTypes.DEFAULT_TYP
         verification, discount, payout = get_profile_data(user.id)
         username = f"@{user.username}" if user.username else user.first_name
         
-        # Полностью новый профиль без дат, балансов и счетчиков
         profile_text = (
             f"👤 **Никнейм:** {username} ({user.id})\n\n"
             f"🛡 **Статус верификации:** {verification}\n"
@@ -289,23 +275,34 @@ async def global_menu_handlers(update: Update, context: ContextTypes.DEFAULT_TYP
         await update.message.reply_text(profile_text, reply_markup=inline_profile_kbd, parse_mode="Markdown")
 
     elif user_text == "💻 Поддержка":
+        # СЛУЖБА ПОДДЕРЖКИ С ТВОИМ ЮЗЕРНЕЙМОМ
         await update.message.reply_text(
-            "🛠 **Служба поддержки**\nЕсли у вас возникли вопросы, напишите администратору: @поддержка",
+            "🛠 **Служба поддержки**\n\n"
+            "Если у вас возникли какие-то проблемы или вопросы по поводу оплаты и получения товара, "
+            "то сразу же обращайтесь к администратору: @mewik88",
             parse_mode="Markdown"
         )
 
     elif user_text == "Информ...я о боте":
-        await update.message.reply_text(
-            "ℹ **Информация о боте**\nМагазин автоматической продажи игровой валюты Standoff 2.",
-            parse_mode="Markdown"
+        # БОЛЬШОЙ ИНФОРМАТИВНЫЙ БЛОК
+        info_text = (
+            "ℹ️ **Информация о нашем боте**\n\n"
+            "🔥 **Добро пожаловать в самый надежный маркет золота Standoff 2!**\n\n"
+            "⚡ **Почему выбирают именно нас:**\n"
+            "• **Самые быстрые услуги:** Мы обрабатываем и отправляем заказы в рекордно короткие сроки.\n"
+            "• **Моментальный прием:** Наши администраторы быстро принимают чеки и сразу берут заказ в работу.\n"
+            "• **Полная безопасность:** Все транзакции защищены, а покупка игровой валюты происходит легально и без рисков для вашего аккаунта.\n"
+            "• **Выгодный курс:** Самые честные и приятные цены на рынке как в рублях, так и в сомони!\n\n"
+            "📈 Мы работаем каждый день, чтобы делать ваш игровой процесс лучше и комфортнее. Спасибо, что вы с нами!"
         )
+        await update.message.reply_text(info_text, parse_mode="Markdown")
 
 async def handle_inline_clicks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
     if query.data == "pay_problem":
-        await query.message.reply_text("⚠️ Опишите вашу проблему нашей поддержке: @поддержка")
+        await query.message.reply_text("⚠️ Возникли проблемы с платежом? Напишите сюда: @mewik88")
 
 # ================= RUN =================
 def main():
@@ -326,10 +323,6 @@ def main():
             CHOOSE_PRODUCT: [
                 CallbackQueryHandler(product_choice, pattern="^so_"),
                 CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$")
-            ],
-            ENTER_TG: [
-                CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, enter_tg)
             ],
             ENTER_ID: [
                 CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
@@ -355,7 +348,7 @@ def main():
     app.add_handler(conv_handler)
     app.add_handler(CallbackQueryHandler(handle_inline_clicks))
     
-    print("🚀 Бот Standoff 2 успешно запущен с чистым меню!")
+    print("🚀 Бот Standoff 2 успешно запущен с обновленным контентом!")
     app.run_polling()
 
 if __name__ == "__main__":
