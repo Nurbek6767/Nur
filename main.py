@@ -1,6 +1,7 @@
 import os
 import logging
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+import sqlite3
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, Update
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -20,15 +21,45 @@ logging.basicConfig(
 TOKEN = os.getenv("TOKEN")
 CHANNEL_ID = -1003660151590
 
-# ================= BANKS =================
+# ================= БАЗА ДАННЫХ =================
+def init_db():
+    conn = sqlite3.connect("bot_simple.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            verification TEXT DEFAULT '❌ Не пройден',
+            discount TEXT DEFAULT '0%',
+            payout TEXT DEFAULT 'Не указан'
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def get_profile_data(user_id):
+    conn = sqlite3.connect("bot_simple.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT verification, discount, payout FROM users WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    if not row:
+        cursor.execute("INSERT INTO users (user_id) VALUES (?)", (user_id,))
+        conn.commit()
+        row = ('❌ Не пройден', '0%', 'Не указан')
+    conn.close()
+    return row
+
+# ================= REKVIZITY =================
 BANKS = {
-    "dc": {"name": "Dushanbe City", "icon": "💳", "number": "+992927755444"},
-    "tinkoff": {"name": "Тинькофф Банк", "icon": "💳", "number": "2200700177676664"},  # Укажи свою карту
-    "sber": {"name": "Сбербанк", "icon": "💳", "number": "2202 0000 0000 0000"},    # Укажи свою карту
-    "sbp": {"name": "СБП (Перевод по телефону)", "icon": "💳", "number": "+79991234567"} # Укажи свой СБП
+    "alfa": {"name": "Альфа-Банк", "icon": "🏦", "number": "4777 0000 0000 0000", "holder": "Вероника П."},
+    "sbp": {"name": "ОПЛАТА ПО СБП", "icon": "📲", "number": "+79991234567", "holder": "Вероника П."},
+    "card": {"name": "ОПЛАТА ПО КАРТЕ", "icon": "💳", "number": "2200 0000 0000 0000", "holder": "Вероника П."},
+    "sber": {"name": "Сбер пей", "icon": "💚", "number": "+79997654321", "holder": "Вероника П."},
+    "tbank": {"name": "Т-банк", "icon": "🏦", "number": "2200700924593303", "holder": "Вероника П."}
 }
 
-# ================= STANDOFF 2 PRICES =================
+# ================= PRICE LIST =================
 SO_PRICES = {
     "so_300": ("300 Gold", 250, 30), "so_500": ("500 Gold", 420, 50),
     "so_700": ("700 Gold", 580, 70), "so_900": ("900 Gold", 750, 90),
@@ -45,85 +76,65 @@ SO_PRICES = {
     "so_5000": ("5000 Gold", 4170, 500)
 }
 
-# Таблица цен
 SO_TABLE_MENU = InlineKeyboardMarkup([
-    [
-        InlineKeyboardButton("🧈 300G — 30смн / 250₽", callback_data="so_300"),
-        InlineKeyboardButton("🧈 2700G — 270смн / 2250₽", callback_data="so_2700")
-    ],
-    [
-        InlineKeyboardButton("🧈 500G — 50смн / 420₽", callback_data="so_500"),
-        InlineKeyboardButton("🧈 2900G — 290смн / 2420₽", callback_data="so_2900")
-    ],
-    [
-        InlineKeyboardButton("🧈 700G — 70смн / 580₽", callback_data="so_700"),
-        InlineKeyboardButton("🧈 3100G — 310смн / 2580₽", callback_data="so_3100")
-    ],
-    [
-        InlineKeyboardButton("🧈 900G — 90смн / 750₽", callback_data="so_900"),
-        InlineKeyboardButton("🧈 3300G — 330смн / 2750₽", callback_data="so_3300")
-    ],
-    [
-        InlineKeyboardButton("🧈 1100G — 110смн / 920₽", callback_data="so_1100"),
-        InlineKeyboardButton("🧈 3500G — 350смн / 2920₽", callback_data="so_3500")
-    ],
-    [
-        InlineKeyboardButton("🧈 1300G — 130смн / 1080₽", callback_data="so_1300"),
-        InlineKeyboardButton("🧈 3700G — 370смн / 3080₽", callback_data="so_3700")
-    ],
-    [
-        InlineKeyboardButton("🧈 1500G — 150смн / 1250₽", callback_data="so_1500"),
-        InlineKeyboardButton("🧈 3900G — 390смн / 3250₽", callback_data="so_3900")
-    ],
-    [
-        InlineKeyboardButton("🧈 1700G — 170смн / 1420₽", callback_data="so_1700"),
-        InlineKeyboardButton("🧈 4100G — 410смн / 3420₽", callback_data="so_4100")
-    ],
-    [
-        InlineKeyboardButton("🧈 1900G — 190смн / 1580₽", callback_data="so_1900"),
-        InlineKeyboardButton("🧈 4300G — 430смн / 3580₽", callback_data="so_4300")
-    ],
-    [
-        InlineKeyboardButton("🧈 2100G — 210смн / 1750₽", callback_data="so_2100"),
-        InlineKeyboardButton("🧈 4500G — 450смн / 3750₽", callback_data="so_4500")
-    ],
-    [
-        InlineKeyboardButton("🧈 2300G — 230смн / 1920₽", callback_data="so_2300"),
-        InlineKeyboardButton("🧈 4700G — 470смн / 3920₽", callback_data="so_4700")
-    ],
-    [
-        InlineKeyboardButton("🧈 2500G — 250смн / 2080₽", callback_data="so_2500"),
-        InlineKeyboardButton("🧈 4900G — 490смн / 4080₽", callback_data="so_4900")
-    ],
-    [
-        InlineKeyboardButton("🧈 5000G — 500смн / 4170₽", callback_data="so_5000")
-    ]
+    [InlineKeyboardButton("🧈 300G — 30смн / 250₽", callback_data="so_300"), InlineKeyboardButton("🧈 2700G — 270смн / 2250₽", callback_data="so_2700")],
+    [InlineKeyboardButton("🧈 500G — 50смн / 420₽", callback_data="so_500"), InlineKeyboardButton("🧈 2900G — 290смн / 2420₽", callback_data="so_2900")],
+    [InlineKeyboardButton("🧈 700G — 70смн / 580₽", callback_data="so_700"), InlineKeyboardButton("🧈 3100G — 310смн / 2580₽", callback_data="so_3100")],
+    [InlineKeyboardButton("🧈 900G — 90смн / 750₽", callback_data="so_900"), InlineKeyboardButton("🧈 3300G — 330смн / 2750₽", callback_data="so_3300")],
+    [InlineKeyboardButton("🧈 1100G — 110смн / 920₽", callback_data="so_1100"), InlineKeyboardButton("🧈 3500G — 350смн / 2920₽", callback_data="so_3500")],
+    [InlineKeyboardButton("🧈 1300G — 130смн / 1080₽", callback_data="so_1300"), InlineKeyboardButton("🧈 3700G — 370смн / 3080₽", callback_data="so_3700")],
+    [InlineKeyboardButton("🧈 1500G — 150смн / 1250₽", callback_data="so_1500"), InlineKeyboardButton("🧈 3900G — 390смн / 3250₽", callback_data="so_3900")],
+    [InlineKeyboardButton("🧈 1700G — 170смн / 1420₽", callback_data="so_1700"), InlineKeyboardButton("🧈 4100G — 410смн / 3420₽", callback_data="so_4100")],
+    [InlineKeyboardButton("🧈 1900G — 190смн / 1580₽", callback_data="so_1900"), InlineKeyboardButton("🧈 4300G — 430смн / 3580₽", callback_data="so_4300")],
+    [InlineKeyboardButton("🧈 2100G — 210смн / 1750₽", callback_data="so_2100"), InlineKeyboardButton("🧈 4500G — 450смн / 3750₽", callback_data="so_4500")],
+    [InlineKeyboardButton("🧈 2300G — 230смн / 1920₽", callback_data="so_2300"), InlineKeyboardButton("🧈 4700G — 470смн / 3920₽", callback_data="so_4700")],
+    [InlineKeyboardButton("🧈 2500G — 250смн / 2080₽", callback_data="so_2500"), InlineKeyboardButton("🧈 4900G — 490смн / 4080₽", callback_data="so_4900")],
+    [InlineKeyboardButton("🧈 5000G — 500смн / 4170₽", callback_data="so_5000")]
 ])
 
 def inline_back_menu():
-    return InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад в меню", callback_data="back_to_menu")]])
+    return InlineKeyboardMarkup([[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_menu")]])
 
 def bank_menu():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("💳 Dushanbe City", callback_data="bank_dc")],
-        [InlineKeyboardButton("💳 Тинькофф", callback_data="bank_tinkoff")],
-        [InlineKeyboardButton("💳 Сбербанк", callback_data="bank_sber")],
-        [InlineKeyboardButton("💳 СБП", callback_data="bank_sbp")],
-        [InlineKeyboardButton("⬅️ Назад в меню", callback_data="back_to_menu")]
+        [InlineKeyboardButton("Альфа-Банк", callback_data="bank_alfa"), InlineKeyboardButton("ОПЛАТА ПО СБП", callback_data="bank_sbp")],
+        [InlineKeyboardButton("ОПЛАТА ПО КАРТЕ", callback_data="bank_card"), InlineKeyboardButton("Сбер пей", callback_data="bank_sber")],
+        [InlineKeyboardButton("Т-банк", callback_data="bank_tbank")],
+        [InlineKeyboardButton("↩️ Назад", callback_data="back_to_menu")]
     ])
 
 def currency_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🇹🇯 Сомони (TJS)", callback_data="curr_tjs")],
         [InlineKeyboardButton("🇷🇺 Рубли (RUB)", callback_data="curr_rub")],
-        [InlineKeyboardButton("⬅️ Назад в меню", callback_data="back_to_menu")]
+        [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_menu")]
     ])
 
-# ================= STATES =================
+# STATES
 CHOOSE_PRODUCT, ENTER_TG, ENTER_ID, CHOOSE_BANK, CHOOSE_CURRENCY, WAIT_CHECK = range(6)
+
+# ЧИСТО ТВОИ 4 КНОПКИ В НИЖНЕМ МЕНЮ
+def get_main_keyboard():
+    keyboard = [
+        [KeyboardButton("💰 Пополнить"), KeyboardButton("🆔 Профиль")],
+        [KeyboardButton("💻 Поддержка"), KeyboardButton("Информ...я о боте")]
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 # ================= HANDLERS =================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("👑 Добро пожаловать! Выберите количество Gold из прайс-листа:", reply_markup=SO_TABLE_MENU)
+    await update.message.reply_text(
+        "🚨 **Главное меню**\nДля взаимодействия с ботом используй клавиатуру.",
+        reply_markup=get_main_keyboard(),
+        parse_mode="Markdown"
+    )
+    return ConversationHandler.END
+
+async def handle_popolnit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "👑 **Выберите количество Gold из прайс-листа:**",
+        reply_markup=SO_TABLE_MENU,
+        parse_mode="Markdown"
+    )
     return CHOOSE_PRODUCT
 
 async def back_to_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -134,7 +145,6 @@ async def back_to_menu_callback(update: Update, context: ContextTypes.DEFAULT_TY
     return CHOOSE_PRODUCT
 
 async def back_to_currency_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Возврат назад на один шаг — к выбору валюты"""
     query = update.callback_query
     await query.answer()
     await query.message.edit_text("💱 Выберите валюту для оплаты:", reply_markup=currency_menu())
@@ -164,8 +174,7 @@ async def enter_tg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if not text.startswith("@") or len(text) < 2:
         await update.message.reply_text(
-            "❌ Неверный Telegram ник!\n"
-            "Пожалуйста, отправьте ваш никнейм правильно, начиная с символа @ (например: @mick):",
+            "❌ Неверный Telegram ник!\nПожалуйста, отправьте никнейм правильно (например: @mick):",
             reply_markup=inline_back_menu()
         )
         return ENTER_TG
@@ -179,9 +188,7 @@ async def enter_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if not text.isdigit() or len(text) < 7:
         await update.message.reply_text(
-            "❌ Неверный ID!\n"
-            "Игровой ID должен состоять только из цифр и содержать не менее 7 знаков.\n"
-            "Пожалуйста, введите ваш ID заново:",
+            "❌ Неверный ID!\nИгровой ID должен состоять только из цифр.\nПожалуйста, введите ваш ID заново:",
             reply_markup=inline_back_menu()
         )
         return ENTER_ID
@@ -199,9 +206,11 @@ async def bank_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not bank:
         return CHOOSE_BANK
         
+    context.user_data["bank_key"] = bank_key
     context.user_data["bank_name"] = bank["name"]
     context.user_data["bank_icon"] = bank["icon"]
     context.user_data["bank_number"] = bank["number"]
+    context.user_data["bank_holder"] = bank["holder"]
 
     await query.message.edit_text("💱 Выберите валюту для оплаты:", reply_markup=currency_menu())
     return CHOOSE_CURRENCY
@@ -218,25 +227,28 @@ async def currency_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["final_amount"] = amount
 
-    # Кнопка возвращает строго назад на шаг выбора валюты
-    back_keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_currency")]
+    # Кнопки под чеком строго как на скриншоте №2
+    payment_keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🚫 Проблема с оплатой", callback_data="pay_problem")],
+        [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_menu")]
     ])
 
-    await query.message.edit_text(
-        f"{context.user_data['bank_icon']} *Банк:* {context.user_data['bank_name']}\n"
-        f"📞 *Реквизиты:* `{context.user_data['bank_number']}`\n\n"
-        f"📦 *Товар:* {context.user_data['product']}\n"
-        f"💰 *Сумма к оплате:* *{amount}*\n\n"
-        "Пожалуйста, переведите точную сумму по реквизитам выше и отправьте скриншот/фото чека сюда:",
-        parse_mode="Markdown",
-        reply_markup=back_keyboard
+    # Текст чека полностью повторяет шаблон с вашего скриншота
+    receipt_text = (
+        f"{context.user_data['bank_icon']} **Банк для оплаты: {context.user_data['bank_name']}**\n\n"
+        f"Если нужен сбп, отпишите в лс владельцу\n\n"
+        f"👤 **Получатель:** {context.user_data['bank_holder']}\n"
+        f"💳 **Реквизиты:** `{context.user_data['bank_number']}`\n"
+        f"💰 **Сумма:** {amount}\n\n"
+        f"✅ **После оплаты отправьте скриншот чека** 👇"
     )
+
+    await query.message.edit_text(receipt_text, parse_mode="Markdown", reply_markup=payment_keyboard)
     return WAIT_CHECK
 
 async def get_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message.photo:
-        await update.message.reply_text("❌ Пожалуйста, отправьте фото или скриншот чека.")
+        await update.message.reply_text("❌ Пожалуйста, отправьте именно фото или скриншот чека.")
         return WAIT_CHECK
 
     await context.bot.send_photo(
@@ -254,16 +266,67 @@ async def get_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     return ConversationHandler.END
 
+# ================= ГЛОБАЛЬНЫЕ ОБРАБОТЧИКИ КНОПОК =================
+async def global_menu_handlers(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_text = update.message.text
+    user = update.effective_user
+
+    if user_text == "🆔 Профиль":
+        verification, discount, payout = get_profile_data(user.id)
+        username = f"@{user.username}" if user.username else user.first_name
+        
+        # Полностью новый профиль без дат, балансов и счетчиков
+        profile_text = (
+            f"👤 **Никнейм:** {username} ({user.id})\n\n"
+            f"🛡 **Статус верификации:** {verification}\n"
+            f"📈 **Личная скидка:** {discount}\n"
+            f"📥 **Способ вывода:** {payout}"
+        )
+        inline_profile_kbd = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎁 Промокод", callback_data="profile_promo")],
+            [InlineKeyboardButton("🔄 Изменить настройки", callback_data="edit_settings")]
+        ])
+        await update.message.reply_text(profile_text, reply_markup=inline_profile_kbd, parse_mode="Markdown")
+
+    elif user_text == "💻 Поддержка":
+        await update.message.reply_text(
+            "🛠 **Служба поддержки**\nЕсли у вас возникли вопросы, напишите администратору: @поддержка",
+            parse_mode="Markdown"
+        )
+
+    elif user_text == "Информ...я о боте":
+        await update.message.reply_text(
+            "ℹ **Информация о боте**\nМагазин автоматической продажи игровой валюты Standoff 2.",
+            parse_mode="Markdown"
+        )
+
+async def handle_inline_clicks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    if query.data == "pay_problem":
+        await query.message.reply_text("⚠️ Опишите вашу проблему нашей поддержке: @поддержка")
+
 # ================= RUN =================
 def main():
     if not TOKEN:
         print("Ошибка: Переменная TOKEN не задана!")
         return
 
+    app = ApplicationBuilder().token(TOKEN).build()
+
+    app.add_handler(MessageHandler(filters.Text(["🆔 Профиль", "💻 Поддержка", "Информ...я о боте"]), global_menu_handlers))
+
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
+        entry_points=[
+            CommandHandler("start", start),
+            MessageHandler(filters.Text("💰 Пополнить"), handle_popolnit)
+        ],
         states={
-            CHOOSE_PRODUCT: [CallbackQueryHandler(product_choice, pattern="^so_")],
+            CHOOSE_PRODUCT: [
+                CallbackQueryHandler(product_choice, pattern="^so_"),
+                CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$")
+            ],
             ENTER_TG: [
                 CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, enter_tg)
@@ -281,17 +344,20 @@ def main():
                 CallbackQueryHandler(currency_choice, pattern="^curr_")
             ],
             WAIT_CHECK: [
-                CallbackQueryHandler(back_to_currency_callback, pattern="^back_to_currency$"),
+                CallbackQueryHandler(back_to_menu_callback, pattern="^back_to_menu$"),
+                CallbackQueryHandler(handle_inline_clicks, pattern="^pay_problem$"),
                 MessageHandler(filters.PHOTO, get_check)
             ],
         },
-        fallbacks=[],
+        fallbacks=[CommandHandler("start", start)],
     )
 
-    app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(conv_handler)
-    print("🚀 Бот Standoff 2 обновлен и запущен!")
+    app.add_handler(CallbackQueryHandler(handle_inline_clicks))
+    
+    print("🚀 Бот Standoff 2 успешно запущен с чистым меню!")
     app.run_polling()
 
 if __name__ == "__main__":
     main()
+
